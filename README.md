@@ -1,233 +1,207 @@
-# ScratchLua Plugin — Visual Block-based Luau Editor
+# ScratchLua v3.0 — Visual Block-based Luau Editor
 
-Plugin Roblox Studio cho phép viết Luau code bằng cách kéo-thả blocks, 
-giống như Scratch — dành cho người mới bắt đầu học lập trình Roblox.
+Plugin Roblox Studio cho phép viết Luau code bằng cách kéo-thả blocks giống Scratch.
 
 ---
 
-## 📁 Cấu trúc file
+## Cấu trúc file
 
 ```
 ScratchLuaPlugin/
-├── init.server.lua              ← Entry point (Plugin Script)
+│
+├── init.server.lua              ← Bootstrap: toolbar, widget, UI, wires modules
+│
 ├── blocks/
-│   └── BlockDefinitions.lua     ← Định nghĩa tất cả block types
+│   └── BlockDefinitions.lua    ← 60+ block definitions (Events, Control, Tween, Remote, GUI, Humanoid...)
+│
 ├── codegen/
-│   └── CodeGenerator.lua        ← Chuyển blocks → Luau code
-└── ui/
-    └── UIBuilder.lua            ← Tạo UI cho từng block
+│   └── CodeGenerator.lua       ← Block chain → Luau code + syntax highlight
+│
+├── core/
+│   ├── StateManager.lua        ← State, placeBlock, rebuildFromData, copy/paste, delete
+│   └── CanvasManager.lua       ← Snap logic, container drop zone, minimap
+│
+├── ui/
+│   ├── UIBuilder.lua           ← Render Frame cho mỗi block (drag, notch, inputs)
+│   └── SidebarManager.lua      ← Populate sidebar, search filter, custom block editing
+│
+└── utils/
+    ├── PersistenceManager.lua  ← Auto-save layout qua plugin:SetSetting
+    ├── UndoManager.lua         ← Undo/Redo stack (tối đa 50 bước)
+    ├── ExportImport.lua        ← Export/Import chương trình dạng JSON
+    ├── CustomBlockManager.lua  ← Tạo, chỉnh sửa, xóa custom blocks
+    └── RuntimeErrorTracker.lua ← Highlight block bị lỗi runtime khi Play mode
 ```
 
 ---
 
-## 🚀 Hướng dẫn cài đặt
+## Cài đặt trong Roblox Studio
 
-### Bước 1: Tạo Plugin Script trong Roblox Studio
+**1. Tạo cây Scripts**
 
-1. Mở Roblox Studio
-2. Vào **View → Explorer**
-3. Trong Explorer, click **ServerStorage** (hoặc bất kỳ container nào)
-4. Insert một **Script** mới, đổi tên thành `ScratchLuaPlugin`
-
-### Bước 2: Tạo cấu trúc ModuleScripts
-
-Trong `ScratchLuaPlugin`, tạo cây sau:
+Trong Explorer, tạo `Script` đặt tên `ScratchLuaPlugin`, rồi tạo Folders và ModuleScripts theo đúng cấu trúc trên. Paste nội dung từng file `.lua` tương ứng vào.
 
 ```
-ScratchLuaPlugin (Script)
-├── blocks (Folder)
-│   └── BlockDefinitions (ModuleScript)
-├── codegen (Folder)  
-│   └── CodeGenerator (ModuleScript)
-└── ui (Folder)
-    └── UIBuilder (ModuleScript)
+ScratchLuaPlugin          Script         ← init.server.lua
+├── blocks/               Folder
+│   └── BlockDefinitions  ModuleScript
+├── codegen/              Folder
+│   └── CodeGenerator     ModuleScript
+├── core/                 Folder
+│   ├── StateManager      ModuleScript
+│   └── CanvasManager     ModuleScript
+├── ui/                   Folder
+│   ├── UIBuilder         ModuleScript
+│   └── SidebarManager    ModuleScript
+└── utils/                Folder
+    ├── PersistenceManager ModuleScript
+    ├── UndoManager        ModuleScript
+    ├── ExportImport       ModuleScript
+    ├── CustomBlockManager ModuleScript
+    └── RuntimeErrorTracker ModuleScript
 ```
 
-**Cách tạo:**
-- Click phải vào `ScratchLuaPlugin` → Insert Object → **Folder**
-- Đổi tên folder thành `blocks`
-- Click phải vào `blocks` → Insert Object → **ModuleScript**
-- Đổi tên thành `BlockDefinitions`
-- Lặp tương tự cho `codegen/CodeGenerator` và `ui/UIBuilder`
+**2. Publish thành plugin**
 
-### Bước 3: Copy code vào từng file
+Click phải vào `ScratchLuaPlugin` → **Save as Local Plugin** → đặt tên `ScratchLua` → Save.
 
-Paste nội dung tương ứng vào mỗi Script/ModuleScript:
-
-| File | Nội dung |
-|------|---------|
-| `ScratchLuaPlugin` (Script) | `init.server.lua` |
-| `blocks/BlockDefinitions` | `BlockDefinitions.lua` |
-| `codegen/CodeGenerator` | `CodeGenerator.lua` |
-| `ui/UIBuilder` | `UIBuilder.lua` |
-
-### Bước 4: Publish thành Plugin
-
-1. Click phải vào Script gốc `ScratchLuaPlugin`
-2. Chọn **"Save as Local Plugin"**
-3. Đặt tên: `ScratchLua`
-4. Click **Save**
-
-Sau khi save, plugin sẽ xuất hiện trong Toolbar của Studio!
+Plugin xuất hiện trong Toolbar. Click icon 🧱 để mở.
 
 ---
 
-## 🎮 Cách sử dụng
-
-### Giao diện chính
+## Giao diện
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  🧱 ScratchLua               [Clear] [▶ Insert to Script]│
-├──────────────┬──────────────────────────┬───────────────┤
-│   BLOCKS     │                          │  Generated    │
-│              │      CANVAS              │  Code         │
-│ ⚡ Events    │                          │               │
-│ 🔁 Control   │  ← Kéo blocks vào đây   │  local x = 5  │
-│ 📦 Variables │                          │  print(x)     │
-│ 🎮 Parts     │  Blocks tự snap nhau     │  ...          │
-│ 👤 Player    │                          │               │
-│ 📢 Output    │                          │               │
-│ 🔢 Math      │                          │               │
-│ 🧩 Functions │                          │               │
-└──────────────┴──────────────────────────┴───────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│ 🧱 ScratchLua v3  ● Syntax OK   [⭐ New Block][✕][↩][↪][📥][📤][▶] │
+├─────────────────┬──────────────────────────────────┬─────────────────┤
+│  🔍 Search...   │                                  │  Generated Code │
+│                 │                                  │                 │
+│ ⚡ Events       │        CANVAS                    │  local x = 5   │
+│ 🔁 Control      │                                  │  print(x)       │
+│ 📦 Variables    │  ← Kéo blocks từ sidebar         │  ...            │
+│ 🎮 Parts        │  Blocks tự snap vào nhau         │                 │
+│ 🎬 Tween        │                                  │         ┌──────┐│
+│ 📡 Remote       │                          Minimap→│         │ ···  ││
+│ 🖼️ GUI          │                                  │         └──────┘│
+│ 🧍 Humanoid     │                                  │                 │
+│ 👤 Player       │                                  │                 │
+│ 📢 Output       │                                  │                 │
+│ 🔢 Math         │                                  │                 │
+│ 🧩 Functions    │                                  │                 │
+│ ⭐ My Blocks    │                                  │                 │
+└─────────────────┴──────────────────────────────────┴─────────────────┘
 ```
 
-### Thao tác cơ bản
+---
 
-1. **Kéo block từ sidebar** vào canvas
-2. **Điền input** vào các ô TextBox trên block
-3. **Snap blocks** lại với nhau (kéo gần notch của block khác)
-4. **Xem code** realtime ở panel bên phải
-5. **Chọn Script** trong Explorer (tùy chọn)
-6. Click **"▶ Insert into Script"** để inject code
+## Tính năng
 
-### Ví dụ: In "Hello World" khi game bắt đầu
+### Block categories (60+ blocks)
+| Category | Nội dung |
+|----------|----------|
+| ⚡ Events | game start, player join/leave, touched, key pressed, heartbeat |
+| 🔁 Control | wait, repeat, for, while, if, if/else, break, return, spawn, defer |
+| 📦 Variables | local, assign, change, table, insert |
+| 🎮 Parts | move, set position/color/transparency/anchored, destroy, clone, find |
+| 🎬 Tween | tween move, tween property |
+| 📡 Remote | FireServer, FireClient, OnServerEvent, OnClientEvent |
+| 🖼️ GUI | set text/visible, slide, on click, notify |
+| 🧍 Humanoid | get, set health/speed/jump, moveTo, on died |
+| 👤 Player | get character, teleport, kick, give tool |
+| 📢 Output | print, print var, warn, error |
+| 🔢 Math | random, abs, floor, clamp, lerp |
+| 🧩 Functions | define, call, comment, section |
+| ⭐ My Blocks | Custom blocks do người dùng tạo |
 
+### Thao tác
+| Hành động | Cách thực hiện |
+|-----------|----------------|
+| Thêm block | Click block trong sidebar |
+| Xóa block | Hover → click × |
+| Di chuyển | Kéo block trên canvas |
+| Snap | Kéo gần block khác, tự ghép |
+| Chọn block | Click |
+| Copy chain | Ctrl+C |
+| Paste | Ctrl+V |
+| Undo | Ctrl+Z hoặc nút ↩ |
+| Redo | Ctrl+Y hoặc nút ↪ |
+| Tìm block | Gõ vào ô Search |
+| Insert code | Chọn Script → nút ▶ Insert |
+| Export | Nút 📤, copy JSON |
+| Import | Nút 📥, paste JSON |
+| Tạo custom block | Nút ⭐ New Block |
+| Sửa custom block | Right-click block trong sidebar |
+
+### Tự động
+| Tính năng | Mô tả |
+|-----------|-------|
+| Auto-save | Lưu layout sau 2 giây không thao tác, restore khi mở lại Studio |
+| Syntax check | Badge xanh ✓/đỏ ✗ kiểm tra code realtime bằng `loadstring` |
+| Runtime errors | Khi Play mode, block gây lỗi bị highlight đỏ + badge `!` |
+| Minimap | Góc dưới phải canvas, hiển thị vị trí tất cả blocks |
+| Theme sync | Tự cập nhật màu theo Studio light/dark theme |
+
+---
+
+## Tạo Custom Block
+
+1. Click **⭐ New Block** trên toolbar
+2. Điền:
+   - **Block Label**: tên hiển thị, có thể dùng emoji
+   - **Code Template**: code Luau, dùng `{tên}` cho inputs
+   - **Shape**: `stack`, `hat`, hoặc `cap`
+   - **Container**: `true` nếu block chứa code bên trong (như if/while)
+   - **Close Template**: dòng đóng khi container (thường là `end`)
+   - **Màu R/G/B**: 0–255
+   - **Inputs**: mỗi dòng một input theo format `name|label|default`
+
+**Ví dụ — block in tên player:**
 ```
-[🚀 When game starts]        ← Hat block (Event)
-    [🖨️ Print "Hello, World!"]  ← Stack block
-    [⏱️ Wait 1 seconds]         ← Stack block  
-    [🖨️ Print "Done!"]          ← Stack block
+Label:    👋 Greet [player]
+Template: print("Hello, " .. {player}.Name)
+Shape:    stack
+Inputs:   player|player var|player
 ```
 
-Kết quả code:
+Để **sửa hoặc xóa** custom block: right-click block trong sidebar (có icon ✏).
+
+---
+
+## Ví dụ chương trình
+
+**In Hello World khi game bắt đầu:**
+```
+[🚀 When game starts]
+    [🖨️ Print "Hello, World!"]
+    [⏱️ Wait 1 seconds]
+    [🖨️ Print "Done!"]
+```
+
+Code sinh ra:
 ```lua
--- Generated by ScratchLua v1.0.0
+-- Generated by ScratchLua v3.0.0
 
 game:GetService('RunService').Heartbeat:Once(function()
-    print("Hello, World!")
-    task.wait(1)
-    print("Done!")
+	print("Hello, World!")
+	task.wait(1)
+	print("Done!")
 end)
 ```
 
----
-
-## 🧩 Danh sách blocks
-
-### ⚡ Events
-| Block | Code sinh ra |
-|-------|-------------|
-| When game starts | `RunService.Heartbeat:Once(...)` |
-| When player joins | `Players.PlayerAdded:Connect(...)` |
-| When part touched | `Part.Touched:Connect(...)` |
-| When key pressed | `UserInputService.InputBegan:Connect(...)` |
-
-### 🔁 Control
-| Block | Code sinh ra |
-|-------|-------------|
-| Wait N seconds | `task.wait(N)` |
-| Repeat N times | `for _i = 1, N do ... end` |
-| Repeat while cond | `while cond do ... end` |
-| If / then | `if cond then ... end` |
-| If / else | `if cond then ... else ... end` |
-| Break | `break` |
-| Return | `return value` |
-
-### 📦 Variables
-| Block | Code sinh ra |
-|-------|-------------|
-| Set local var | `local name = value` |
-| Change by amount | `name = name + amount` |
-| Assign | `name = value` |
-
-### 🎮 Parts
-| Block | Code sinh ra |
-|-------|-------------|
-| Move part | `part.CFrame = part.CFrame + Vector3.new(...)` |
-| Set position | `part.CFrame = CFrame.new(...)` |
-| Set color | `part.BrickColor = BrickColor.new(...)` |
-| Destroy | `part:Destroy()` |
-| Clone | `local clone = part:Clone()` |
-
-### 👤 Player
-| Block | Code sinh ra |
-|-------|-------------|
-| Teleport | Move HumanoidRootPart CFrame |
-| Set health | `Humanoid.Health = hp` |
-| Kick | `player:Kick(reason)` |
-
-### 📢 Output
-| Block | Code sinh ra |
-|-------|-------------|
-| Print text | `print("message")` |
-| Print variable | `print(variable)` |
-| Warn | `warn("message")` |
-| Notify | `StarterGui:SetCore("SendNotification", ...)` |
-
-### 🔢 Math
-| Block | Code sinh ra |
-|-------|-------------|
-| Random | `math.random(min, max)` |
-| Abs | `math.abs(value)` |
-| Floor | `math.floor(value)` |
-
-### 🧩 Functions
-| Block | Code sinh ra |
-|-------|-------------|
-| Define function | `local function name() ... end` |
-| Call function | `name()` |
-| Comment | `-- text` |
-
----
-
-## 🔧 Mở rộng thêm blocks
-
-Để thêm block mới, vào `BlockDefinitions.lua` và thêm vào array của category tương ứng:
-
-```lua
-{
-    id           = "my_custom_block",
-    label        = "🎯 Do something [value]",
-    shape        = "stack",                        -- hat | stack | cap
-    color        = Color3.fromRGB(100, 150, 200),
-    inputs       = {
-        {name = "value", type = "text", default = "abc", label = "value"},
-    },
-    codeTemplate = 'doSomething("{value}")',
-    height       = 32,
-},
+**Teleport player khi chạm vào part:**
+```
+[✋ When part touched]  hit var = hit
+    [👤 Get character of player]  save as = char
+    [⚡ Teleport player to XYZ]   X=0 Y=50 Z=0
 ```
 
 ---
 
-## 📝 Lưu ý
+## Ghi chú kỹ thuật
 
-- Plugin **không lưu trạng thái** giữa các session (blocks reset khi đóng Studio)
-- Code generated chưa được validate syntax — kiểm tra Output window sau khi insert
-- Với containers (if/while/for), blocks bên trong cần được kéo vào **vùng thân** của container block
-- Để blocks snap chính xác hơn, kéo chậm và gần với notch connector
-
----
-
-## 🚀 Cải tiến tiếp theo
-
-- [ ] Lưu/load block layout vào DataStore hoặc file JSON
-- [ ] Container blocks (if/while) với visual drop zone
-- [ ] Copy/paste blocks
-- [ ] Undo/redo stack
-- [ ] Export/import block programs
-- [ ] Custom block creator UI
-- [ ] Live error validation
-- [ ] Block search/filter
+- Plugin lưu layout qua `plugin:SetSetting` — không mất khi đóng Studio
+- Export JSON tương thích giữa các máy (dùng để chia sẻ chương trình)
+- Syntax validation dùng `loadstring()` — chỉ check syntax, không chạy code
+- Runtime error tracking dùng `ScriptContext.Error` — chỉ hoạt động khi Play mode và script được insert từ plugin
+- Undo stack tối đa 50 bước, tự xóa cũ khi đầy
